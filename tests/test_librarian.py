@@ -70,9 +70,13 @@ def test_new_version_replaces_old(kb):
     stats = lib.build()
     assert stats["indexed"] == 1
     assert stats["skipped"] == 2
-    # exactly one summary per doc (no stale duplicates)
     summaries = [r for r in lib.store.all_records() if r.doc_type == "file_summary"]
-    assert len(summaries) == 3
+    # Exactly one CURRENT summary per doc (no stale duplicates in live results)...
+    current = [r for r in summaries if r.is_current]
+    assert len(current) == 3
+    # ...and the superseded edition is retained (archived), not deleted.
+    archived = [r for r in summaries if not r.is_current]
+    assert len(archived) == 1
 
 
 def test_persistence_reopen(kb):
@@ -114,6 +118,73 @@ def test_sql_connector(tmp_path):
     results = lib.search("customer email", k=2)
     assert results
     lib.close()
+
+
+def test_archived_version_retrieval(kb):
+    lib, _, tmp_path = kb
+    # Supersede a file with new content.
+    (tmp_path / "docs" / "billing" / "pricing.md").write_text(
+        "# Pricing\nThe Pro plan now costs 59 dollars per month."
+    )
+    lib.add_path(str(tmp_path / "docs"), source_id="docs")
+    lib.build()
+
+    # Default search (current only) never surfaces the old "$49" edition.
+    current_text = " ".join(e.excerpt for e in lib.search("pro plan price per month", k=10))
+    assert "49" not in current_text
+    assert "59" in current_text
+
+    # Archived editions are still queryable when explicitly requested.
+    archived_text = " ".join(
+        e.excerpt for e in lib.retriever.search("pro plan 49 dollars", k=10, include_archived=True)
+    )
+    assert "49" in archived_text  # the superseded edition is retained in the index
+
+
+def test_build_resilient_to_failing_connector(tmp_path):
+    class BoomConnector:
+        def items(self):
+            raise RuntimeError("store unreachable")
+            yield  # pragma: no cover
+
+    docs = tmp_path / "d"
+    docs.mkdir()
+    (docs / "a.txt").write_text("hello world content about widgets")
+
+    lib = Librarian.open(str(tmp_path / "kb"))
+    lib.add_connector(BoomConnector())
+    lib.add_path(str(docs), source_id="docs")
+    stats = lib.build()  # must not raise
+    assert stats["failed"] >= 1
+    assert stats["indexed"] == 1  # the good source still got indexed
+    lib.close()
+
+
+def test_lexical_matches_path_and_filename(kb):
+    lib, _, _ = kb
+    # A query naming the file/folder should surface it via lexical matching.
+    results = lib.search("refunds", k=5)
+    assert any("refunds" in (e.uri or "").lower() for e in results)
+
+
+def test_faiss_backend(tmp_path):
+    pytest.importorskip("faiss")
+    docs = tmp_path / "d"
+    docs.mkdir()
+    (docs / "a.md").write_text("# Networking\nThe VPN uses SSO and a corporate gateway.")
+    (docs / "b.md").write_text("# Payroll\nSalaries are paid on the last business day.")
+
+    lib = Librarian.open(str(tmp_path / "kb"), vector_backend="faiss")
+    lib.add_path(str(docs), source_id="docs")
+    stats = lib.build()
+    assert stats["indexed"] == 2
+    results = lib.search("how does the vpn authenticate", k=3)
+    assert results
+    lib.close()
+    # Reopen to confirm FAISS metadata persisted.
+    reopened = Librarian.open(str(tmp_path / "kb"), vector_backend="faiss")
+    assert reopened.stats()["documents"] == 2
+    reopened.close()
 
 
 def test_tool_adapter(kb):

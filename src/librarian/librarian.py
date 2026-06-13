@@ -156,7 +156,18 @@ class Librarian:
         """
         stats = {"indexed": 0, "skipped": 0, "failed": 0, "chunks": 0}
         for source in self._sources:
-            for item in source:
+            # Iterate defensively: a connector itself can fail (e.g. an
+            # optional dependency is missing or a remote store is unreachable).
+            # One bad source/item must not abort the whole build.
+            iterator = iter(source)
+            while True:
+                try:
+                    item = next(iterator)
+                except StopIteration:
+                    break
+                except Exception:
+                    stats["failed"] += 1
+                    break
                 try:
                     result, n_chunks = self._index_item(item, force=force)
                     stats[result] = stats.get(result, 0) + 1
@@ -228,8 +239,12 @@ class Librarian:
         )
         self.catalog.upsert_version(version)
 
-        # Replace any prior index records for this document (handles new versions).
-        self.store.delete_by_doc(doc_id)
+        # Version handling: archive any prior records for this document (they
+        # stay queryable via include_archived) and clear any stale records for
+        # *this* version_id (e.g. a forced re-index), then add the new current
+        # records below.
+        self.store.archive_doc(doc_id)
+        self.store.delete_by_doc_version(doc_id, version_id)
 
         asset_ctx = profile.as_context()
         section_ids = self.catalog.sections_for_doc(doc_id)

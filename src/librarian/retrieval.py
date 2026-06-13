@@ -1,11 +1,12 @@
 """Hybrid retrieval: the read path of the Librarian.
 
-Combines four signals the way an expert navigates a repository:
+Blends complementary signals the way an expert navigates a repository:
 
-1. **Direct path** -- if the query names a file/URL, surface it.
-2. **Semantic** -- vector similarity over summaries (and chunks on fallback).
-3. **Lexical** -- term overlap, for names, codes, and rare keywords.
-4. **Structural** -- folder/section roll-ups that explain *where* things live.
+1. **Semantic** -- vector similarity over summaries (and chunks on fallback).
+2. **Lexical** -- term overlap over the record's title, URI/path, text, and
+   tags, so filenames, paths, codes, and rare keywords match directly.
+3. **Structural** -- folder/section roll-ups that explain *where* things live
+   and compete in the same ranking.
 
 It prefers current editions and summaries, then deepens into chunks only when
 the question demands detail or summary confidence is low (the "summary-first,

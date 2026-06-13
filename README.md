@@ -2,11 +2,11 @@
 
 **A foundational knowledge layer for AI systems.**
 
-Librarian turns any document store — a folder on your laptop, a website, a
-SharePoint drive, an object store, a SQL database, or the whole internet — into
-a context-rich, logically organized **catalog**, and gives you an agentic,
-hybrid **retriever** that finds the right information inside it, fast, with
-citations.
+Librarian turns a document store — a folder on your laptop, a website, or a SQL
+database out of the box, and anything else (SharePoint, S3, Notion, …) through a
+small connector interface — into a context-rich, logically organized
+**catalog**, and gives you a hybrid **retriever**, designed to be driven by your
+agent, that finds the right information inside it, fast, with citations.
 
 It is plug-and-play and runs with **zero required dependencies and no API
 keys**. `pip install`, point it at your data, and search.
@@ -98,15 +98,14 @@ metadata, recursively, at every level of the tree.**
   the nearest heading. So "it grew 12% year over year" becomes a unit that knows
   *what* grew and *which* document it's from. This is what curbs hallucination
   and sharpens precision.
-- **Hybrid, structure-aware retrieval.** The read path blends four signals the
-  way an expert does: direct path/name matching, semantic similarity, lexical
-  term overlap, and structural roll-ups — preferring current editions and
-  summaries, then deepening into chunks on demand.
+- **Hybrid, structure-aware retrieval.** The read path blends complementary
+  signals the way an expert does: semantic similarity, lexical term overlap
+  (over titles, paths, and tags), and structural roll-ups — preferring current
+  editions and summaries, then deepening into chunks on demand.
 
-The effect: you can scale the corpus arbitrarily — to the size of the internet —
-and the system stays *highly relevant* to the specific thing being asked,
-because relevance is engineered into the catalog, not left to a single distance
-metric.
+The effect: as the corpus grows, the system stays *highly relevant* to the
+specific thing being asked, because relevance is engineered into the catalog,
+not left to a single distance metric.
 
 ### A foundation to build on
 
