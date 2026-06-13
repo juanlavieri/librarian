@@ -46,6 +46,27 @@ class LocalVectorStore(VectorStore):
             del self._records[rid]
         self._dirty_matrix = True
 
+    def delete_by_doc_version(self, doc_id: str, version_id: str) -> None:
+        to_drop = [
+            rid for rid, r in self._records.items()
+            if r.doc_id == doc_id and r.version_id == version_id
+        ]
+        for rid in to_drop:
+            del self._records[rid]
+        self._dirty_matrix = True
+
+    def archive_doc(self, doc_id: str) -> None:
+        """Mark all records for a document as not-current (archived).
+
+        Used when a new version supersedes an old one: the old records stay in
+        the index (so archived-version retrieval works) but drop out of the
+        default current-only results.
+        """
+        for rec in self._records.values():
+            if rec.doc_id == doc_id:
+                rec.is_current = False
+        self._dirty_matrix = True
+
     # --- reads ---
     def all_records(self) -> List[IndexRecord]:
         return list(self._records.values())
@@ -98,7 +119,7 @@ class LocalVectorStore(VectorStore):
         candidates = self._candidates(filters)
         scored: List[Tuple[IndexRecord, float]] = []
         for rec in candidates:
-            haystack = f"{rec.title}\n{rec.text}\n{' '.join(rec.tags)}".lower()
+            haystack = f"{rec.title}\n{rec.uri}\n{rec.text}\n{' '.join(rec.tags)}".lower()
             doc_tokens = set(_TOKEN_RE.findall(haystack))
             if not doc_tokens:
                 continue

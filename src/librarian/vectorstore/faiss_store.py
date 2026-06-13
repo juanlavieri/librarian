@@ -43,6 +43,21 @@ class FaissVectorStore(VectorStore):
             del self._records[rid]
         self._needs_rebuild = True
 
+    def delete_by_doc_version(self, doc_id: str, version_id: str) -> None:
+        drop = [
+            rid for rid, r in self._records.items()
+            if r.doc_id == doc_id and r.version_id == version_id
+        ]
+        for rid in drop:
+            del self._records[rid]
+        self._needs_rebuild = True
+
+    def archive_doc(self, doc_id: str) -> None:
+        for rec in self._records.values():
+            if rec.doc_id == doc_id:
+                rec.is_current = False
+        self._needs_rebuild = True
+
     def _rebuild(self) -> None:
         self._index = self._faiss.IndexFlatIP(self.dim)
         self._id_order = []
