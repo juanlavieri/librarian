@@ -328,4 +328,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Issues and PRs welcome.
 
 ## License
 
-[Apache 2.0](LICENSE).
+Copyright 2026 Juan Lavieri. Licensed under [Apache 2.0](LICENSE) (see also
+[NOTICE](NOTICE)).

@@ -9,7 +9,7 @@ description = "A foundational knowledge layer for AI: a context-rich catalog of 
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.9"
-authors = [{ name = "The Librarian contributors" }]
+authors = [{ name = "Juan Lavieri" }]
 keywords = [
     "rag", "retrieval", "knowledge-base", "agents", "llm", "embeddings",
     "vector-search", "context", "ai", "search",
