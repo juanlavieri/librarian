@@ -26,9 +26,9 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/your-org/librarian"
-Repository = "https://github.com/your-org/librarian"
-Issues = "https://github.com/your-org/librarian/issues"
+Homepage = "https://github.com/juanlavieri/librarian"
+Repository = "https://github.com/juanlavieri/librarian"
+Issues = "https://github.com/juanlavieri/librarian/issues"
 
 [project.optional-dependencies]
 # Faster local vector math + larger local stores.

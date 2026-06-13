@@ -8,7 +8,7 @@ welcome.
 ## Development setup
 
 ```bash
-git clone <your-fork-url>
+git clone https://github.com/juanlavieri/librarian.git
 cd librarian
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
