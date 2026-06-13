@@ -17,10 +17,30 @@ if TYPE_CHECKING:  # pragma: no cover
 _DESCRIPTION = (
     "Search the knowledge base for relevant, citation-ready evidence. Hybrid "
     "retrieval (semantic + lexical + structural) over a context-enriched "
-    "catalog. Pass a specific natural-language query; include the metric, name, "
-    "or detail you actually need. Returns JSON evidence items with title, uri, "
-    "location, excerpt, and score -- cite them in your answer."
+    "catalog. Pass a specific natural-language query and include the metric, "
+    "name, or detail you actually need -- not just the topic. Returns JSON "
+    "evidence items, each with title, uri, location, excerpt, doc_type, and "
+    "score. Cite the evidence you use, and quote concrete figures verbatim. "
+    "Call again with a refined query when the first results lack the specific "
+    "detail the question needs, or when a comparison needs evidence for the "
+    "other side. Internal knowledge only; this does not browse the public web."
 )
+
+_PARAMETERS = {
+    "type": "object",
+    "properties": {
+        "query": {
+            "type": "string",
+            "description": "Specific natural-language search query.",
+        },
+        "k": {
+            "type": "integer",
+            "description": "Maximum number of evidence items to return.",
+            "minimum": 1,
+        },
+    },
+    "required": ["query"],
+}
 
 
 class LibrarianTool:
@@ -42,35 +62,46 @@ class LibrarianTool:
 
     # --- schemas ---
     def openai_schema(self) -> Dict[str, Any]:
+        """Tool schema for the OpenAI Chat Completions API (``tools=[...]``)."""
         return {
             "type": "function",
             "function": {
                 "name": self.name,
                 "description": _DESCRIPTION,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "Natural-language search query.",
-                        },
-                        "k": {
-                            "type": "integer",
-                            "description": "Max evidence items to return.",
-                            "default": self.default_k,
-                        },
-                    },
-                    "required": ["query"],
-                },
+                "parameters": _PARAMETERS,
             },
         }
 
+    def openai_responses_schema(self) -> Dict[str, Any]:
+        """Tool schema for the OpenAI Responses API (flat shape)."""
+        return {
+            "type": "function",
+            "name": self.name,
+            "description": _DESCRIPTION,
+            "parameters": _PARAMETERS,
+        }
+
+    def anthropic_schema(self) -> Dict[str, Any]:
+        """Tool schema for the Anthropic Messages API (``tools=[...]``)."""
+        return {
+            "name": self.name,
+            "description": _DESCRIPTION,
+            "input_schema": _PARAMETERS,
+        }
+
     def as_langchain_tool(self):
-        """Return a LangChain ``BaseTool`` wrapping this tool (needs langchain)."""
+        """Return a LangChain ``StructuredTool`` wrapping this tool (needs langchain)."""
         from langchain.tools import StructuredTool  # type: ignore
+
+        default_k = self.default_k
+        run_json = self.run_json
+
+        def librarian_search(query: str, k: int = default_k) -> str:
+            """Search the knowledge base and return JSON evidence."""
+            return run_json(query, k=k)
 
         return StructuredTool.from_function(
             name=self.name,
             description=_DESCRIPTION,
-            func=lambda query, k=self.default_k: self.run_json(query, k=k),
+            func=librarian_search,
         )

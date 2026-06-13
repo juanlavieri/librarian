@@ -123,3 +123,25 @@ def test_tool_adapter(kb):
     assert schema["function"]["name"] == "librarian_search"
     out = tool.run("architecture", k=2)
     assert "evidence" in out and isinstance(out["evidence"], list)
+
+
+def test_tool_schemas_are_valid(kb):
+    import json
+
+    lib, _, _ = kb
+    tool = lib.as_tool()
+
+    chat = tool.openai_schema()
+    assert chat["type"] == "function"
+    assert chat["function"]["parameters"]["required"] == ["query"]
+
+    resp = tool.openai_responses_schema()
+    assert resp["type"] == "function" and resp["name"] == tool.name
+    assert "parameters" in resp  # flat shape, no nested "function"
+
+    anth = tool.anthropic_schema()
+    assert anth["name"] == tool.name and "input_schema" in anth
+
+    # run_json is parseable and shaped for a tool message
+    payload = json.loads(tool.run_json("architecture", k=2))
+    assert "evidence" in payload

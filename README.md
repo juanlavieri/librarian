@@ -155,7 +155,7 @@ box.
 | **Catalog** | `catalog/` | Canonical source of truth: documents, immutable versions, chunks, sections, membership. SQLite by default. |
 | **Index** | `vectorstore/` | Denormalized, searchable records + embeddings. Local pure-Python store by default; FAISS optional. |
 | **Retrieve** | `retrieval.py` | Hybrid, structure-aware, summary-first with chunk fallback. Returns `Evidence` with provenance. |
-| **Serve** | `tool.py`, `memory.py` | Agent tool adapter (OpenAI/LangChain) + short-term conversational memory. |
+| **Serve** | `tool.py`, `memory.py` | Agent tool adapter (OpenAI / Anthropic / LangChain) + short-term conversational memory. |
 
 ### Why it outperforms vector-only RAG
 
@@ -206,12 +206,21 @@ for ev in lib.search("how do refunds work?", k=5):
 context = lib.context("how do refunds work?")
 ```
 
-### As an agent tool (OpenAI function calling)
+### As an agent tool
+
+The Librarian's read path drops into any agent runtime as a function tool:
 
 ```python
 tool = lib.as_tool()
-tools = [tool.openai_schema()]          # pass to the Chat Completions / Responses API
-result = tool.run("refund window")      # {"evidence": [...]}  ← dispatch on tool call
+
+tool.openai_schema()             # OpenAI Chat Completions  (tools=[...])
+tool.openai_responses_schema()   # OpenAI Responses API
+tool.anthropic_schema()          # Anthropic Messages API   (tools=[...])
+tool.as_langchain_tool()         # LangChain StructuredTool
+
+# Dispatch when the model calls the tool:
+result = tool.run("refund window")        # -> {"evidence": [...]}
+payload = tool.run_json("refund window")  # same, JSON-encoded for the tool message
 ```
 
 ### Command line
