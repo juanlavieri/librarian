@@ -1,0 +1,60 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "librarian-kb"
+version = "0.1.0"
+description = "A foundational knowledge layer for AI: a context-rich catalog of any document store plus an agentic hybrid retriever. Plug-and-play, zero required dependencies."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.9"
+authors = [{ name = "The Librarian contributors" }]
+keywords = [
+    "rag", "retrieval", "knowledge-base", "agents", "llm", "embeddings",
+    "vector-search", "context", "ai", "search",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Indexing",
+]
+# The core runs on the standard library alone. Everything else is opt-in.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/your-org/librarian"
+Repository = "https://github.com/your-org/librarian"
+Issues = "https://github.com/your-org/librarian/issues"
+
+[project.optional-dependencies]
+# Faster local vector math + larger local stores.
+fast = ["numpy>=1.21"]
+# Document readers for office/pdf/image formats.
+documents = ["pypdf>=3.0", "python-docx>=0.8", "python-pptx>=0.6", "openpyxl>=3.0", "beautifulsoup4>=4.10"]
+ocr = ["pytesseract>=0.3", "Pillow>=9.0"]
+# Web crawling connector.
+web = ["requests>=2.25", "beautifulsoup4>=4.10"]
+# OpenAI embeddings + summaries.
+openai = ["openai>=1.0", "tiktoken>=0.5"]
+# Scale-out vector backend.
+faiss = ["faiss-cpu>=1.7", "numpy>=1.21"]
+# Everything for local development.
+all = [
+    "numpy>=1.21", "pypdf>=3.0", "python-docx>=0.8", "python-pptx>=0.6",
+    "openpyxl>=3.0", "beautifulsoup4>=4.10", "requests>=2.25",
+    "openai>=1.0", "tiktoken>=0.5",
+]
+dev = ["pytest>=7.0", "numpy>=1.21"]
+
+[project.scripts]
+librarian = "librarian.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/librarian"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

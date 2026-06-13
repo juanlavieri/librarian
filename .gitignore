@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Librarian data / generated indexes
+librarian_data/
+*.faiss
+*.faiss.meta.json
+index.json
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
