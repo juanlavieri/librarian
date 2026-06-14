@@ -70,6 +70,13 @@ class Librarian:
         self.summarizer = summarizer or self._default_summarizer()
         self.catalog = catalog or self._default_catalog()
         self.store = store or self._default_store()
+        # Archival helpers are optional on the VectorStore protocol so custom
+        # backends written against the original interface keep working. When a
+        # store lacks them we fall back to delete-on-reindex (no archived-version
+        # retrieval, but fully functional).
+        self._store_archives = hasattr(self.store, "archive_doc") and hasattr(
+            self.store, "delete_by_doc_version"
+        )
         self.memory = ConversationMemory(summarizer=self.summarizer)
         self.retriever = Retriever(self.store, self.embedder, self.config)
         self._sources: List[Iterable[IntakeItem]] = []
@@ -242,9 +249,13 @@ class Librarian:
         # Version handling: archive any prior records for this document (they
         # stay queryable via include_archived) and clear any stale records for
         # *this* version_id (e.g. a forced re-index), then add the new current
-        # records below.
-        self.store.archive_doc(doc_id)
-        self.store.delete_by_doc_version(doc_id, version_id)
+        # records below. Custom stores without the archival helpers fall back to
+        # deleting the document's records (original behavior).
+        if self._store_archives:
+            self.store.archive_doc(doc_id)
+            self.store.delete_by_doc_version(doc_id, version_id)
+        else:
+            self.store.delete_by_doc(doc_id)
 
         asset_ctx = profile.as_context()
         section_ids = self.catalog.sections_for_doc(doc_id)
