@@ -187,6 +187,70 @@ def test_faiss_backend(tmp_path):
     reopened.close()
 
 
+def test_custom_store_without_archival_helpers(tmp_path):
+    """A custom VectorStore predating archive_doc/delete_by_doc_version must
+    still index successfully (falls back to delete_by_doc), not fail silently."""
+    from librarian.vectorstore.base import Filters, cosine
+
+    class LegacyStore:
+        # Implements only the original VectorStore surface -- no archival helpers.
+        def __init__(self):
+            self._recs = {}
+
+        def upsert(self, records):
+            for r in records:
+                self._recs[r.id] = r
+
+        def delete_by_doc(self, doc_id):
+            for rid in [k for k, r in self._recs.items() if r.doc_id == doc_id]:
+                del self._recs[rid]
+
+        def search_semantic(self, vector, k, filters=None):
+            out = []
+            for r in self._recs.values():
+                if filters is not None and not filters.matches(r):
+                    continue
+                if r.vector:
+                    out.append((r, cosine(vector, r.vector)))
+            out.sort(key=lambda x: x[1], reverse=True)
+            return out[:k]
+
+        def search_lexical(self, query, k, filters=None):
+            return []
+
+        def all_records(self):
+            return list(self._recs.values())
+
+        def persist(self):
+            pass
+
+        def close(self):
+            pass
+
+    assert not hasattr(LegacyStore(), "archive_doc")
+
+    docs = tmp_path / "d"
+    docs.mkdir()
+    (docs / "a.md").write_text("# Topic\nThe widget ships in three sizes.")
+
+    from librarian import LibrarianConfig
+
+    lib = Librarian(LibrarianConfig(root=str(tmp_path / "kb")), store=LegacyStore())
+    lib.add_path(str(docs), source_id="docs")
+    stats = lib.build()
+    assert stats["failed"] == 0
+    assert stats["indexed"] == 1
+    assert lib.search("widget sizes", k=3)
+
+    # Reindex a changed doc still works via the delete_by_doc fallback.
+    (docs / "a.md").write_text("# Topic\nThe widget now ships in five sizes.")
+    lib.add_path(str(docs), source_id="docs")
+    stats2 = lib.build()
+    assert stats2["failed"] == 0
+    assert stats2["indexed"] == 1
+    lib.close()
+
+
 def test_tool_adapter(kb):
     lib, _, _ = kb
     tool = lib.as_tool()
