@@ -251,6 +251,73 @@ def test_custom_store_without_archival_helpers(tmp_path):
     lib.close()
 
 
+def test_protocol_subclass_store_without_overrides_uses_fallback(tmp_path):
+    """A store that SUBCLASSES the VectorStore Protocol but omits the archival
+    methods inherits their no-op stubs. The Librarian must treat them as
+    not-implemented and use delete_by_doc on reindex, so superseded versions do
+    not linger as current (which would return stale content)."""
+    from librarian import LibrarianConfig
+    from librarian.vectorstore.base import Filters, VectorStore, cosine
+
+    class ProtoSubclassStore(VectorStore):
+        # Inherits archive_doc / delete_by_doc_version stubs from the Protocol.
+        def __init__(self):
+            self._recs = {}
+
+        def upsert(self, records):
+            for r in records:
+                self._recs[r.id] = r
+
+        def delete_by_doc(self, doc_id):
+            for rid in [k for k, r in self._recs.items() if r.doc_id == doc_id]:
+                del self._recs[rid]
+
+        def search_semantic(self, vector, k, filters=None):
+            out = [
+                (r, cosine(vector, r.vector))
+                for r in self._recs.values()
+                if r.vector and (filters is None or filters.matches(r))
+            ]
+            out.sort(key=lambda x: x[1], reverse=True)
+            return out[:k]
+
+        def search_lexical(self, query, k, filters=None):
+            return []
+
+        def all_records(self):
+            return list(self._recs.values())
+
+        def persist(self):
+            pass
+
+        def close(self):
+            pass
+
+    store = ProtoSubclassStore()
+    # The stubs are inherited (hasattr True) but must NOT be treated as real.
+    assert hasattr(store, "archive_doc")
+
+    docs = tmp_path / "d"
+    docs.mkdir()
+    (docs / "a.md").write_text("# Pricing\nThe plan costs 49 dollars.")
+
+    lib = Librarian(LibrarianConfig(root=str(tmp_path / "kb")), store=store)
+    assert lib._store_archives is False  # detected the inherited stubs correctly
+    lib.add_path(str(docs), source_id="docs")
+    assert lib.build()["indexed"] == 1
+
+    # Supersede the document.
+    (docs / "a.md").write_text("# Pricing\nThe plan costs 79 dollars.")
+    lib.add_path(str(docs), source_id="docs")
+    assert lib.build()["indexed"] == 1
+
+    # No stale records: exactly one current summary, and it's the new content.
+    summaries = [r for r in store.all_records() if r.doc_type == "file_summary"]
+    assert len(summaries) == 1
+    assert "79" in summaries[0].text and "49" not in summaries[0].text
+    lib.close()
+
+
 def test_tool_adapter(kb):
     lib, _, _ = kb
     tool = lib.as_tool()

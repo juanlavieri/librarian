@@ -54,6 +54,22 @@ from .vectorstore import IndexRecord, LocalVectorStore
 from .vectorstore.base import VectorStore
 
 
+def _really_implements(store: object, method: str) -> bool:
+    """True only if ``store`` provides a *real* override of ``method``.
+
+    ``VectorStore`` is a ``typing.Protocol`` whose methods have empty ``...``
+    bodies. A store that subclasses the protocol but omits a method inherits
+    that no-op stub, so ``hasattr`` would report it as present. We instead
+    compare the resolved attribute against the protocol's own stub and reject a
+    match, so only genuine implementations count.
+    """
+    impl = getattr(type(store), method, None)
+    if impl is None:
+        return False
+    stub = getattr(VectorStore, method, None)
+    return impl is not stub
+
+
 class Librarian:
     def __init__(
         self,
@@ -73,10 +89,13 @@ class Librarian:
         # Archival helpers are optional on the VectorStore protocol so custom
         # backends written against the original interface keep working. When a
         # store lacks them we fall back to delete-on-reindex (no archived-version
-        # retrieval, but fully functional).
-        self._store_archives = hasattr(self.store, "archive_doc") and hasattr(
-            self.store, "delete_by_doc_version"
-        )
+        # retrieval, but fully functional). We check for a *real* override, not
+        # just hasattr: a store that subclasses the Protocol inherits its no-op
+        # `...` stubs, and treating those as implemented would silently leave
+        # superseded versions marked current (stale results).
+        self._store_archives = _really_implements(
+            self.store, "archive_doc"
+        ) and _really_implements(self.store, "delete_by_doc_version")
         self.memory = ConversationMemory(summarizer=self.summarizer)
         self.retriever = Retriever(self.store, self.embedder, self.config)
         self._sources: List[Iterable[IntakeItem]] = []
