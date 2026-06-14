@@ -318,6 +318,69 @@ def test_protocol_subclass_store_without_overrides_uses_fallback(tmp_path):
     lib.close()
 
 
+def test_delegating_store_keeps_archival_capability(tmp_path):
+    """A store that exposes archive_doc/delete_by_doc_version dynamically (via
+    __getattr__ delegation) must be detected as archival-capable, so archived
+    versions are retained and include_archived can retrieve them."""
+    from librarian import LibrarianConfig
+    from librarian.vectorstore import LocalVectorStore
+
+    class DelegatingAdapter:
+        # No archival methods on the class; delegates everything to an inner store.
+        def __init__(self, inner):
+            self._inner = inner
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+    inner = LocalVectorStore(str(tmp_path / "kb" / "index.json"))
+    store = DelegatingAdapter(inner)
+    assert "archive_doc" not in type(store).__dict__  # not on the class
+    assert hasattr(store, "archive_doc")  # but reachable dynamically
+
+    docs = tmp_path / "d"
+    docs.mkdir()
+    (docs / "a.md").write_text("# Pricing\nThe plan costs 49 dollars.")
+
+    lib = Librarian(LibrarianConfig(root=str(tmp_path / "kb")), store=store)
+    assert lib._store_archives is True  # detected the delegated helpers
+    lib.add_path(str(docs), source_id="docs")
+    lib.build()
+
+    (docs / "a.md").write_text("# Pricing\nThe plan costs 79 dollars.")
+    lib.add_path(str(docs), source_id="docs")
+    lib.build()
+
+    # Old edition retained and retrievable via include_archived.
+    archived = lib.retriever.search("plan costs 49 dollars", k=10, include_archived=True)
+    assert any("49" in e.excerpt for e in archived)
+    # Default (current-only) search shows the new edition.
+    current = " ".join(e.excerpt for e in lib.search("plan cost dollars", k=10))
+    assert "79" in current and "49" not in current
+    lib.close()
+
+
+def test_instance_attribute_archival_methods_detected(tmp_path):
+    from librarian import LibrarianConfig
+    from librarian.vectorstore import LocalVectorStore
+
+    inner = LocalVectorStore(str(tmp_path / "kb" / "index.json"))
+
+    class InstanceLevel:
+        def __init__(self, inner):
+            self._inner = inner
+            # Methods attached on the instance, not the class.
+            self.archive_doc = inner.archive_doc
+            self.delete_by_doc_version = inner.delete_by_doc_version
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+    lib = Librarian(LibrarianConfig(root=str(tmp_path / "kb")), store=InstanceLevel(inner))
+    assert lib._store_archives is True
+    lib.close()
+
+
 def test_tool_adapter(kb):
     lib, _, _ = kb
     tool = lib.as_tool()

@@ -55,19 +55,28 @@ from .vectorstore.base import VectorStore
 
 
 def _really_implements(store: object, method: str) -> bool:
-    """True only if ``store`` provides a *real* override of ``method``.
+    """True only if ``store`` provides a *real* (working) ``method``.
 
-    ``VectorStore`` is a ``typing.Protocol`` whose methods have empty ``...``
-    bodies. A store that subclasses the protocol but omits a method inherits
-    that no-op stub, so ``hasattr`` would report it as present. We instead
-    compare the resolved attribute against the protocol's own stub and reject a
-    match, so only genuine implementations count.
+    Two failure modes to avoid:
+
+    * ``VectorStore`` is a ``typing.Protocol`` whose methods have empty ``...``
+      bodies, so a store that subclasses it but omits a method inherits a no-op
+      stub. Plain ``hasattr`` would wrongly report that as implemented.
+    * Conversely, a store may expose the method *dynamically* -- as an instance
+      attribute, or via ``__getattr__`` delegation to another store -- in which
+      case it is absent from ``type(store)`` but fully functional.
+
+    So we resolve the attribute on the *instance* (which sees class overrides,
+    instance attributes, and ``__getattr__``) and reject it only when it is the
+    Protocol's own stub function.
     """
-    impl = getattr(type(store), method, None)
+    impl = getattr(store, method, None)
     if impl is None:
         return False
     stub = getattr(VectorStore, method, None)
-    return impl is not stub
+    # Bound methods carry their function in __func__; compare that to the stub.
+    impl_func = getattr(impl, "__func__", impl)
+    return impl_func is not stub
 
 
 class Librarian:
