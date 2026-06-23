@@ -59,12 +59,6 @@ jobs:
     needs: [check, build]
     if: needs.check.outputs.publish == 'true'
     runs-on: ubuntu-latest
-    # The environment name must match the Trusted Publisher entry on PyPI.
-    environment:
-      name: pypi
-      url: https://pypi.org/p/librarian-kb
-    permissions:
-      id-token: write  # PyPI Trusted Publishing (OIDC) -- no API token needed.
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -72,6 +66,11 @@ jobs:
           path: dist/
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Authenticates with the PYPI_API_TOKEN repository secret.
+          # (To switch to tokenless Trusted Publishing later, remove this and
+          # add `permissions: id-token: write` + an environment entry on PyPI.)
+          password: ${{ secrets.PYPI_API_TOKEN }}
 
   tag:
     needs: [check, publish]

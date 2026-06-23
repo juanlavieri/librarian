@@ -39,7 +39,7 @@ from .models import (
 from .readers import register_reader, supported_extensions
 from .tool import LibrarianTool
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = [
     "Librarian",

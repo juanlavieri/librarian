@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "librarian-kb"
-version = "0.1.0"
+version = "0.1.1"
 description = "A foundational knowledge layer for AI: a context-rich catalog of any document store plus an agentic hybrid retriever. Plug-and-play, zero required dependencies."
 readme = "README.md"
 license = { text = "Apache-2.0" }
