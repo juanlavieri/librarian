@@ -27,7 +27,7 @@ jobs:
         run: |
           version=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          code=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/librarian-kb/$version/json")
+          code=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/librarian-ai/$version/json")
           if [ "$code" = "200" ]; then
             echo "Version $version already on PyPI -- skipping."
             echo "publish=false" >> "$GITHUB_OUTPUT"

@@ -3,7 +3,7 @@
 Runnable, dependency-free examples. From the repo root:
 
 ```bash
-pip install -e .          # or: pip install librarian-kb
+pip install -e .          # or: pip install librarian-ai
 python examples/quickstart.py
 python examples/sql_catalog.py
 python examples/agent_tool_openai.py     # prints the wiring; runs the LLM only if OPENAI_API_KEY is set
