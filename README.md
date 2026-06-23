@@ -174,17 +174,20 @@ box.
 ## Install
 
 ```bash
-pip install librarian-kb            # core, zero dependencies
+pip install librarian-ai            # core, zero dependencies
 
-pip install "librarian-kb[fast]"        # numpy-accelerated local search
-pip install "librarian-kb[documents]"   # PDF / DOCX / PPTX / XLSX readers
-pip install "librarian-kb[web]"         # website crawling connector
-pip install "librarian-kb[openai]"      # OpenAI embeddings + summaries
-pip install "librarian-kb[faiss]"       # FAISS vector backend (scale-out)
-pip install "librarian-kb[all]"         # everything
+pip install "librarian-ai[fast]"        # numpy-accelerated local search
+pip install "librarian-ai[documents]"   # PDF / DOCX / PPTX / XLSX readers
+pip install "librarian-ai[web]"         # website crawling connector
+pip install "librarian-ai[openai]"      # OpenAI embeddings + summaries
+pip install "librarian-ai[faiss]"       # FAISS vector backend (scale-out)
+pip install "librarian-ai[all]"         # everything
 ```
 
-> The package installs as `librarian-kb`; you import it as `librarian`.
+> **Package name:** install with `pip install librarian-ai`; import it as
+> `librarian` (`from librarian import Librarian`). See
+> [Package name & history](#package-name--history) for why the distribution is
+> named `librarian-ai`.
 
 ## Quickstart
 
@@ -320,6 +323,21 @@ connectors, OpenAI + FAISS integrations, agent tool + CLI.
 Planned: agentic organization (LLM-proposed sections/merges), incremental delta
 sync, more connectors (SharePoint/S3/Notion/Confluence), pgvector/Qdrant stores,
 evaluation harness, and async ingestion.
+
+## Package name & history
+
+- **Install:** `pip install librarian-ai`
+- **Import:** `import librarian` / `from librarian import Librarian`
+- **Source:** https://github.com/juanlavieri/librarian
+
+The PyPI distribution is named **`librarian-ai`**. The Python import package is
+`librarian` (the shorter, intuitive name to type in code); the distribution uses
+the `-ai` suffix because the bare `librarian` name is already taken on PyPI.
+
+> ⚠️ A package named **`librarian-kb`** (version `0.1.0`) also exists on PyPI. It
+> was an earlier release of this project published from an account that is no
+> longer accessible. **It is not maintained — do not use it.** The canonical,
+> maintained package is **`librarian-ai`**.
 
 ## Contributing
 

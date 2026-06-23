@@ -65,7 +65,7 @@ def crawl_site(
         from bs4 import BeautifulSoup  # type: ignore
     except Exception as exc:  # pragma: no cover
         raise RuntimeError(
-            "Web crawling requires the 'web' extra: pip install 'librarian-kb[web]'"
+            "Web crawling requires the 'web' extra: pip install 'librarian-ai[web]'"
         ) from exc
 
     parsed = urlparse(start_url if "://" in start_url else f"https://{start_url}")

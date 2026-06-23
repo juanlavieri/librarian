@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.1.1] - 2026-06-23
 
+### Changed (packaging)
+- **Renamed the PyPI distribution to `librarian-ai`.** `0.1.1` is the first
+  release under this name and is the canonical, maintained package. The import
+  name is unchanged (`import librarian`). The earlier `librarian-kb` `0.1.0`
+  release was published from an account that is no longer accessible and is not
+  maintained — use `librarian-ai`.
+
 ### Fixed
 - **Archived-version retrieval now works.** Superseding a document archives its
   prior index records (`is_current=false`) instead of deleting them, so
