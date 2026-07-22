@@ -1,0 +1,42 @@
+name: Retrieval benchmark
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install benchmark dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[benchmark,faiss]"
+      - name: Run public and hierarchical benchmarks
+        run: |
+          systems="lexical-overlap,hashing-cosine,current-hybrid,production-fts5,fts5-bm25,dense-minilm,rrf-bm25-minilm,forced-fallback-bm25"
+          python -m benchmarks.run --dataset scifact --systems "$systems" --repetitions 1
+          python -m benchmarks.run --dataset nfcorpus --systems "$systems" --repetitions 1
+          python -m benchmarks.run --dataset hierarchical-1000 --queries 200 --systems "$systems" --repetitions 1
+          python -m benchmarks.promote \
+            --candidate-dir benchmarks/runs \
+            --baseline-dir benchmarks/runs \
+            --candidate production-fts5 \
+            --output benchmarks/runs/promotion-gate.json
+      - name: Upload raw benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: librarian-benchmark-${{ github.sha }}
+          path: benchmarks/runs/*.json
+          retention-days: 90
+

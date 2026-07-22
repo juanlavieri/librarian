@@ -8,8 +8,8 @@ Two halves, one object, mirroring a real library:
   logically organized, context-rich index of *what exists and what it is about*.
 * **The librarian** (read path): an agentic, hybrid retriever that, given a
   question, navigates that catalog the way an expert librarian would -- by
-  topic, structure, name, and meaning -- and returns highly relevant,
-  citation-ready evidence fast.
+  topic, structure, name, and meaning -- and returns passage-level,
+  citation-ready evidence.
 
 Defaults run with zero dependencies and no API keys. Every backend (embedder,
 summarizer, catalog, vector store) is swappable.

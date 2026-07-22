@@ -36,6 +36,12 @@ class LibrarianConfig:
     # Blend weights for hybrid scoring (semantic vs lexical).
     semantic_weight: float = 0.7
     lexical_weight: float = 0.3
+    # "fts5" is the benchmark-promoted default. "hybrid" retains weighted
+    # semantic + lexical fusion for compatibility and controlled comparisons.
+    retrieval_strategy: str = "fts5"  # "fts5" | "hybrid"
+    fusion_strategy: str = "weighted"  # "weighted" | "rrf" (hybrid only)
+    rrf_k: int = 60
+    candidate_pool_multiplier: int = 3
     # Prefer current editions; set True to also surface archived versions.
     include_archived: bool = False
 

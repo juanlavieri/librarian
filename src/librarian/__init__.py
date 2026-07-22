@@ -1,8 +1,8 @@
-"""Librarian -- a foundational knowledge layer for AI systems.
+"""Librarian -- a local, evidence-oriented knowledge layer for AI systems.
 
 A two-part system: a context-rich, recursively organized **catalog** of any
-document store, and an agentic, hybrid **retriever** that finds highly relevant,
-citation-ready evidence fast. Plug-and-play with zero required dependencies.
+supported document store, and a hybrid **retriever** that returns passage-level,
+citation-ready evidence. Plug-and-play locally with zero required dependencies.
 
 Quickstart::
 

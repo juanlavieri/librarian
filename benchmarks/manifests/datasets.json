@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "datasets": {
+    "scifact": {
+      "archive": "scifact.zip",
+      "documents": 5183,
+      "test_queries": 300,
+      "md5": "5f7d1de60b170fc8027bb7898e2efca1",
+      "url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip"
+    },
+    "nfcorpus": {
+      "archive": "nfcorpus.zip",
+      "documents": 3633,
+      "test_queries": 323,
+      "md5": "a89dba18a62ef92f7d323ec890a0d38d",
+      "url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/nfcorpus.zip"
+    },
+    "hierarchical": {
+      "generator": "benchmarks.datasets.generate_hierarchical",
+      "seed": 20260721,
+      "sizes": [1000, 100000, 1000000],
+      "versions_per_policy": 3
+    }
+  }
+}

@@ -4,9 +4,9 @@ A raw chunk pulled from the middle of a document is ambiguous: "it grew 12%
 year over year" is useless without knowing *what* grew and *which* document it
 came from. Before a chunk is embedded and indexed, the Librarian prepends a
 compact context header derived from the document title, its folder, its
-inferred subject, and the nearest heading. This dramatically improves retrieval
-precision and curbs hallucination, because every retrievable unit carries the
-context required to interpret it correctly.
+inferred subject, and the nearest heading. The intent is to preserve information
+needed to interpret a passage after it has been separated from its document.
+Its effect on retrieval and answer grounding must be measured empirically.
 """
 
 from __future__ import annotations

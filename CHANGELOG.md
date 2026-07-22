@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/), and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-07-22
+
+### Added
+- Reproducible BEIR and generated hierarchical benchmark harness with raw
+  rankings, IR metrics, paired bootstrap confidence intervals, latency,
+  indexing, storage, grounding, failure-mode, and scale artifacts.
+- SQLite FTS5/BM25 lexical retrieval and optional reciprocal-rank fusion.
+- Automatic lexical fallback when a semantic provider fails during hybrid
+  retrieval.
+
+### Changed
+- FTS5/BM25 is now the default retrieval strategy after clearing the published
+  promotion gate on SciFact, NFCorpus, and the generated hierarchical corpus.
+  The previous weighted hybrid remains available with
+  `retrieval_strategy="hybrid"`.
+- Benchmark and positioning claims now link to committed methodology, results,
+  and raw artifacts.
+
 ## [0.1.1] - 2026-06-23
 
 ### Changed (packaging)
