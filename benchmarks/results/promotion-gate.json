@@ -1,0 +1,103 @@
+{
+  "candidate": "production-fts5",
+  "comparisons": {
+    "current-hybrid": {
+      "ndcg@10": {
+        "ci95_high": 0.14232655065244984,
+        "ci95_low": 0.10700241213372552,
+        "mean_delta": 0.12454663625403886,
+        "passed": true,
+        "samples": 10000
+      },
+      "recall@10": {
+        "ci95_high": 0.13186011484844548,
+        "ci95_low": 0.08990582587690879,
+        "mean_delta": 0.1109210072347566,
+        "passed": true,
+        "samples": 10000
+      }
+    },
+    "hashing-cosine": {
+      "ndcg@10": {
+        "ci95_high": 0.2764762777742676,
+        "ci95_low": 0.22827146359530207,
+        "mean_delta": 0.2520017416943621,
+        "passed": true,
+        "samples": 10000
+      },
+      "recall@10": {
+        "ci95_high": 0.2572212547797375,
+        "ci95_low": 0.20238569159674796,
+        "mean_delta": 0.22945718444393293,
+        "passed": true,
+        "samples": 10000
+      }
+    },
+    "lexical-overlap": {
+      "ndcg@10": {
+        "ci95_high": 0.22562849608493218,
+        "ci95_low": 0.19033938006032655,
+        "mean_delta": 0.20770681250316386,
+        "passed": true,
+        "samples": 10000
+      },
+      "recall@10": {
+        "ci95_high": 0.12019889692228568,
+        "ci95_low": 0.0811506259560834,
+        "mean_delta": 0.1003352428179635,
+        "passed": true,
+        "samples": 10000
+      }
+    }
+  },
+  "created_at": "2026-07-22T05:25:25.352476+00:00",
+  "inputs": {
+    "hierarchical-1000": {
+      "baseline_created_at": "2026-07-22T05:21:24.285538+00:00",
+      "candidate_created_at": "2026-07-22T05:22:28.019191+00:00"
+    },
+    "nfcorpus": {
+      "baseline_created_at": "2026-07-22T05:21:08.276900+00:00",
+      "candidate_created_at": "2026-07-22T05:22:17.205234+00:00"
+    },
+    "scifact": {
+      "baseline_created_at": "2026-07-22T05:17:20.336924+00:00",
+      "candidate_created_at": "2026-07-22T05:21:54.918527+00:00"
+    }
+  },
+  "latency_gate": true,
+  "passed": true,
+  "per_dataset": {
+    "hierarchical-1000": {
+      "candidate_ndcg@10": 1.0,
+      "candidate_warm_p95_ms": 2.4074916960671544,
+      "current_ndcg@10": 1.0,
+      "current_warm_p95_ms": 16.063966078218073,
+      "latency_gate": true,
+      "ndcg_regression_gate": true,
+      "relative_ndcg_delta": 0.0
+    },
+    "nfcorpus": {
+      "candidate_ndcg@10": 0.30326666967958105,
+      "candidate_warm_p95_ms": 26.074049656745046,
+      "current_ndcg@10": 0.22415853369094033,
+      "current_warm_p95_ms": 148.79030203446743,
+      "latency_gate": true,
+      "ndcg_regression_gate": true,
+      "relative_ndcg_delta": 0.3529115518649468
+    },
+    "scifact": {
+      "candidate_ndcg@10": 0.6715648585682431,
+      "candidate_warm_p95_ms": 12.45807043742388,
+      "current_ndcg@10": 0.4150650128590997,
+      "current_warm_p95_ms": 197.69921218976378,
+      "latency_gate": true,
+      "ndcg_regression_gate": true,
+      "relative_ndcg_delta": 0.6179751069411776
+    }
+  },
+  "per_dataset_regression_gate": true,
+  "quality_gate": true,
+  "query_count": 823,
+  "schema_version": 1
+}

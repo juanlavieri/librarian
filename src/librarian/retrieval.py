@@ -71,21 +71,59 @@ class Retriever:
     def _hybrid(
         self, query: str, k: int, filters: Filters
     ) -> List[tuple]:
-        qvec = self.embedder.embed_one(query)
-        semantic = self.store.search_semantic(qvec, k * 3, filters)
-        lexical = self.store.search_lexical(query, k * 3, filters)
+        pool = k * max(1, self.cfg.candidate_pool_multiplier)
+        if self.cfg.retrieval_strategy == "fts5":
+            bm25 = getattr(self.store, "search_lexical_bm25", None)
+            try:
+                lexical = (
+                    bm25(query, pool, filters)
+                    if callable(bm25)
+                    else self.store.search_lexical(query, pool, filters)
+                )
+            except Exception:
+                lexical = self.store.search_lexical(query, pool, filters)
+            if not lexical:
+                try:
+                    qvec = self.embedder.embed_one(query)
+                    lexical = self.store.search_semantic(qvec, pool, filters)
+                except Exception:
+                    lexical = []
+            best: Dict[str, tuple] = {}
+            for rec, score in lexical:
+                key = rec.doc_id if rec.doc_type != DOC_TYPE_CHUNK else rec.id
+                if key not in best:
+                    best[key] = (rec, score)
+            return list(best.values())[:k]
 
-        merged: Dict[str, Dict] = {}
-        for rec, score in semantic:
-            merged.setdefault(rec.id, {"rec": rec, "sem": 0.0, "lex": 0.0})["sem"] = score
-        for rec, score in lexical:
-            merged.setdefault(rec.id, {"rec": rec, "sem": 0.0, "lex": 0.0})["lex"] = score
+        # Semantic providers are optional. A transient provider failure must
+        # degrade to lexical retrieval rather than making search unavailable.
+        try:
+            qvec = self.embedder.embed_one(query)
+            semantic = self.store.search_semantic(qvec, pool, filters)
+        except Exception:
+            semantic = []
+        lexical = self.store.search_lexical(query, pool, filters)
 
-        scored = [
-            (m["rec"], _blend(m["sem"], m["lex"], self.cfg))
-            for m in merged.values()
-        ]
-        scored.sort(key=lambda x: x[1], reverse=True)
+        if self.cfg.fusion_strategy == "rrf":
+            fused: Dict[str, Dict] = {}
+            for ranking in (semantic, lexical):
+                for rank, (rec, _score) in enumerate(ranking, start=1):
+                    entry = fused.setdefault(rec.id, {"rec": rec, "score": 0.0})
+                    entry["score"] += 1.0 / (self.cfg.rrf_k + rank)
+            scored = [(entry["rec"], entry["score"]) for entry in fused.values()]
+            scored.sort(key=lambda item: item[1], reverse=True)
+        else:
+            merged: Dict[str, Dict] = {}
+            for rec, score in semantic:
+                merged.setdefault(rec.id, {"rec": rec, "sem": 0.0, "lex": 0.0})["sem"] = score
+            for rec, score in lexical:
+                merged.setdefault(rec.id, {"rec": rec, "sem": 0.0, "lex": 0.0})["lex"] = score
+
+            scored = [
+                (m["rec"], _blend(m["sem"], m["lex"], self.cfg))
+                for m in merged.values()
+            ]
+            scored.sort(key=lambda x: x[1], reverse=True)
         # Dedupe to one record per document, keeping the best score.
         best: Dict[str, tuple] = {}
         for rec, score in scored:

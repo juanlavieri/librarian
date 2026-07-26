@@ -2,9 +2,9 @@
 
 Holds records in memory and snapshots them to a JSON file. Uses numpy to
 accelerate semantic search when it is installed and falls back to a pure-Python
-cosine loop otherwise. Suitable for development and for knowledge bases up to
-the low hundreds of thousands of records; point ``vector_backend="faiss"`` (or
-a custom store) at larger corpora.
+cosine loop otherwise. Intended for local development and small-team use.
+Choose ``vector_backend="faiss"`` or a custom store for other deployment needs,
+and benchmark the selected backend against the target corpus and workload.
 """
 
 from __future__ import annotations
@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import sqlite3
+import threading
 from typing import Dict, List, Optional, Tuple
 
 from .base import Filters, IndexRecord, VectorStore, cosine
@@ -31,29 +33,38 @@ class LocalVectorStore(VectorStore):
         self._np_matrix = None
         self._np_ids: List[str] = []
         self._dirty_matrix = True
+        self._fts_conn: Optional[sqlite3.Connection] = None
+        self._fts_dirty = True
+        self._fts_lock = threading.RLock()
         if path and os.path.exists(path):
             self._load()
 
     # --- writes ---
     def upsert(self, records: List[IndexRecord]) -> None:
-        for rec in records:
-            self._records[rec.id] = rec
-        self._dirty_matrix = True
+        with self._fts_lock:
+            for rec in records:
+                self._records[rec.id] = rec
+            self._dirty_matrix = True
+            self._fts_dirty = True
 
     def delete_by_doc(self, doc_id: str) -> None:
-        to_drop = [rid for rid, r in self._records.items() if r.doc_id == doc_id]
-        for rid in to_drop:
-            del self._records[rid]
-        self._dirty_matrix = True
+        with self._fts_lock:
+            to_drop = [rid for rid, r in self._records.items() if r.doc_id == doc_id]
+            for rid in to_drop:
+                del self._records[rid]
+            self._dirty_matrix = True
+            self._fts_dirty = True
 
     def delete_by_doc_version(self, doc_id: str, version_id: str) -> None:
-        to_drop = [
-            rid for rid, r in self._records.items()
-            if r.doc_id == doc_id and r.version_id == version_id
-        ]
-        for rid in to_drop:
-            del self._records[rid]
-        self._dirty_matrix = True
+        with self._fts_lock:
+            to_drop = [
+                rid for rid, r in self._records.items()
+                if r.doc_id == doc_id and r.version_id == version_id
+            ]
+            for rid in to_drop:
+                del self._records[rid]
+            self._dirty_matrix = True
+            self._fts_dirty = True
 
     def archive_doc(self, doc_id: str) -> None:
         """Mark all records for a document as not-current (archived).
@@ -62,10 +73,12 @@ class LocalVectorStore(VectorStore):
         the index (so archived-version retrieval works) but drop out of the
         default current-only results.
         """
-        for rec in self._records.values():
-            if rec.doc_id == doc_id:
-                rec.is_current = False
-        self._dirty_matrix = True
+        with self._fts_lock:
+            for rec in self._records.values():
+                if rec.doc_id == doc_id:
+                    rec.is_current = False
+            self._dirty_matrix = True
+            self._fts_dirty = True
 
     # --- reads ---
     def all_records(self) -> List[IndexRecord]:
@@ -134,6 +147,96 @@ class LocalVectorStore(VectorStore):
         scored.sort(key=lambda x: x[1], reverse=True)
         return scored[:k]
 
+    def _ensure_fts(self) -> sqlite3.Connection:
+        if self._fts_conn is None:
+            self._fts_conn = sqlite3.connect(":memory:", check_same_thread=False)
+            self._fts_dirty = True
+        if not self._fts_dirty:
+            return self._fts_conn
+        self._fts_conn.execute("DROP TABLE IF EXISTS librarian_fts")
+        self._fts_conn.execute(
+            "CREATE VIRTUAL TABLE librarian_fts USING fts5("
+            "record_id UNINDEXED, doc_type UNINDEXED, doc_id UNINDEXED, "
+            "source_id UNINDEXED, is_current UNINDEXED, tags, title, uri, body, "
+            "tokenize='unicode61 remove_diacritics 2')"
+        )
+        self._fts_conn.executemany(
+            "INSERT INTO librarian_fts VALUES (?,?,?,?,?,?,?,?,?)",
+            (
+                (
+                    rec.id,
+                    rec.doc_type,
+                    rec.doc_id,
+                    rec.source_id,
+                    1 if rec.is_current else 0,
+                    " ".join(rec.tags),
+                    rec.title,
+                    rec.uri,
+                    rec.text,
+                )
+                for rec in self._records.values()
+            ),
+        )
+        self._fts_conn.commit()
+        self._fts_dirty = False
+        return self._fts_conn
+
+    def search_lexical_bm25(
+        self, query: str, k: int, filters: Optional[Filters] = None
+    ) -> List[Tuple[IndexRecord, float]]:
+        """Rank lexical matches with SQLite FTS5 BM25.
+
+        FTS query syntax is never accepted from callers: natural-language
+        terms are quoted and OR-combined. Facet filters are applied in SQL so
+        archived or out-of-scope records cannot crowd out eligible results.
+        """
+        terms = list(dict.fromkeys(_TOKEN_RE.findall(query or "")))[:64]
+        if not terms:
+            return []
+        match_query = " OR ".join(f'"{term.replace(chr(34), chr(34) * 2)}"' for term in terms)
+        where = ["librarian_fts MATCH ?"]
+        params: List[object] = [match_query]
+
+        def add_in(column: str, values: Optional[List[str]]) -> None:
+            if values is None:
+                return
+            if not values:
+                where.append("0")
+                return
+            placeholders = ",".join("?" for _ in values)
+            where.append(f"{column} IN ({placeholders})")
+            params.extend(values)
+
+        if filters is not None:
+            add_in("doc_type", filters.doc_types)
+            add_in("doc_id", filters.doc_ids)
+            add_in("source_id", filters.source_ids)
+            if filters.is_current is not None:
+                where.append("is_current = ?")
+                params.append(1 if filters.is_current else 0)
+        params.append(k)
+        with self._fts_lock:
+            rows = self._ensure_fts().execute(
+                "SELECT record_id, bm25(librarian_fts, 0.0, 0.0, 0.0, 0.0, "
+                "0.0, 0.5, 1.5, 0.75, 1.0) AS distance "
+                f"FROM librarian_fts WHERE {' AND '.join(where)} "
+                "ORDER BY distance, record_id LIMIT ?",
+                params,
+            ).fetchall()
+            output: List[Tuple[IndexRecord, float]] = []
+            query_tokens = {term.lower() for term in terms}
+            for record_id, _distance in rows:
+                rec = self._records.get(str(record_id))
+                if rec is None:
+                    continue
+                haystack = f"{rec.title}\n{rec.uri}\n{rec.text}\n{' '.join(rec.tags)}".lower()
+                doc_tokens = set(_TOKEN_RE.findall(haystack))
+                # BM25 determines ordering; query-term coverage is a stable
+                # 0..1 confidence signal for summary-to-chunk fallback.
+                confidence = len(query_tokens & doc_tokens) / len(query_tokens)
+                output.append((rec, confidence))
+            return output
+
     # --- persistence ---
     def persist(self) -> None:
         if not self.path:
@@ -147,6 +250,10 @@ class LocalVectorStore(VectorStore):
 
     def close(self) -> None:
         self.persist()
+        with self._fts_lock:
+            if self._fts_conn is not None:
+                self._fts_conn.close()
+                self._fts_conn = None
 
     def _load(self) -> None:
         try:

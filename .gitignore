@@ -6,6 +6,7 @@ __pycache__/
 build/
 dist/
 .venv/
+.benchmark-venv/
 venv/
 env/
 
@@ -21,6 +22,12 @@ librarian_data/
 *.faiss
 *.faiss.meta.json
 index.json
+
+# Benchmark downloads, generated corpora, indexes, and raw runs
+benchmarks/data/
+benchmarks/runs/
+benchmarks/indexes/
+benchmarks/tmp/
 
 # OS / editors
 .DS_Store

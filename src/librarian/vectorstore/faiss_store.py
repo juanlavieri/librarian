@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 from typing import Dict, List, Optional, Tuple
 
 from .base import Filters, IndexRecord, VectorStore
@@ -29,34 +30,45 @@ class FaissVectorStore(VectorStore):
         self._index = faiss.IndexFlatIP(dim)
         self._id_order: List[str] = []
         self._needs_rebuild = False
+        self._fts_conn = None
+        self._fts_dirty = True
+        self._fts_lock = threading.RLock()
         if path and os.path.exists(self.meta_path):
             self._load()
 
     def upsert(self, records: List[IndexRecord]) -> None:
-        for rec in records:
-            self._records[rec.id] = rec
-        self._needs_rebuild = True
+        with self._fts_lock:
+            for rec in records:
+                self._records[rec.id] = rec
+            self._needs_rebuild = True
+            self._fts_dirty = True
 
     def delete_by_doc(self, doc_id: str) -> None:
-        drop = [rid for rid, r in self._records.items() if r.doc_id == doc_id]
-        for rid in drop:
-            del self._records[rid]
-        self._needs_rebuild = True
+        with self._fts_lock:
+            drop = [rid for rid, r in self._records.items() if r.doc_id == doc_id]
+            for rid in drop:
+                del self._records[rid]
+            self._needs_rebuild = True
+            self._fts_dirty = True
 
     def delete_by_doc_version(self, doc_id: str, version_id: str) -> None:
-        drop = [
-            rid for rid, r in self._records.items()
-            if r.doc_id == doc_id and r.version_id == version_id
-        ]
-        for rid in drop:
-            del self._records[rid]
-        self._needs_rebuild = True
+        with self._fts_lock:
+            drop = [
+                rid for rid, r in self._records.items()
+                if r.doc_id == doc_id and r.version_id == version_id
+            ]
+            for rid in drop:
+                del self._records[rid]
+            self._needs_rebuild = True
+            self._fts_dirty = True
 
     def archive_doc(self, doc_id: str) -> None:
-        for rec in self._records.values():
-            if rec.doc_id == doc_id:
-                rec.is_current = False
-        self._needs_rebuild = True
+        with self._fts_lock:
+            for rec in self._records.values():
+                if rec.doc_id == doc_id:
+                    rec.is_current = False
+            self._needs_rebuild = True
+            self._fts_dirty = True
 
     def _rebuild(self) -> None:
         self._index = self._faiss.IndexFlatIP(self.dim)
@@ -106,6 +118,18 @@ class FaissVectorStore(VectorStore):
         proxy._records = self._records  # type: ignore[attr-defined]
         return LocalVectorStore.search_lexical(proxy, query, k, filters)
 
+    def search_lexical_bm25(
+        self, query: str, k: int, filters: Optional[Filters] = None
+    ) -> List[Tuple[IndexRecord, float]]:
+        from .local_store import LocalVectorStore
+
+        return LocalVectorStore.search_lexical_bm25(self, query, k, filters)
+
+    def _ensure_fts(self):
+        from .local_store import LocalVectorStore
+
+        return LocalVectorStore._ensure_fts(self)
+
     def all_records(self) -> List[IndexRecord]:
         return list(self._records.values())
 
@@ -136,3 +160,7 @@ class FaissVectorStore(VectorStore):
 
     def close(self) -> None:
         self.persist()
+        with self._fts_lock:
+            if self._fts_conn is not None:
+                self._fts_conn.close()
+                self._fts_conn = None

@@ -1,12 +1,12 @@
 # Librarian
 
-**A foundational knowledge layer for AI systems.**
+**A local, evidence-oriented knowledge layer for AI systems.**
 
 Librarian turns a document store — a folder on your laptop, a website, or a SQL
 database out of the box, and anything else (SharePoint, S3, Notion, …) through a
 small connector interface — into a context-rich, logically organized
 **catalog**, and gives you a hybrid **retriever**, designed to be driven by your
-agent, that finds the right information inside it, fast, with citations.
+agent, that returns passage-level evidence with source references.
 
 It is plug-and-play and runs with **zero required dependencies and no API
 keys**. `pip install`, point it at your data, and search.
@@ -24,7 +24,45 @@ for ev in lib.search("what is our refund window?"):
 
 ---
 
-## Thesis: AI doesn't have a model problem, it has a knowledge problem
+## Positioning and evidence standard
+
+Librarian is currently optimized for private retrieval across the files and
+operational context of an individual or small team. It is **not presented as a
+proven replacement for Pinecone, Weaviate, or an enterprise retrieval stack**.
+No controlled head-to-head benchmark against those systems has been published.
+
+The architectural focus is hierarchy and evidence: retrieval records retain
+document identity, version, source, location, metadata, and structural roll-ups.
+A retrieval score estimates relevance; it does not establish authority and is
+not the source of truth. The SQLite catalog remains canonical for the metadata
+managed by this package.
+
+This open-source release currently implements:
+
+- a local SQLite metadata catalog plus an in-memory FTS5/BM25 retrieval index;
+- summary records and passage-level document chunks;
+- deterministic hashing embeddings by default, with OpenAI embeddings optional;
+- cosine-similarity semantic ranking;
+- FTS5/BM25 retrieval by default, promoted by the published local benchmark;
+- legacy lexical token overlap and configurable weighted or reciprocal-rank
+  fusion for controlled comparisons;
+- structural folder and section roll-ups in the same retrieval index; and
+- local JSON persistence by default, with an optional FAISS backend.
+
+When hybrid retrieval is selected, semantic-provider failures automatically
+fall back to lexical retrieval. The package does not implement an authorization
+policy engine; integrating applications and connectors must enforce source
+permissions before content is indexed or returned.
+
+The local benchmark measured FTS5/BM25 against the previous weighted hybrid,
+token overlap, hashing cosine, MiniLM, and RRF on BEIR SciFact, BEIR NFCorpus,
+and a generated hierarchical/versioned corpus. FTS5/BM25 improved pooled
+nDCG@10 by 0.1245 over the previous hybrid (paired bootstrap 95% CI
+[0.1070, 0.1423]) without an individual-dataset regression. See the
+[methodology](docs/BENCHMARKING.md) and [full results](docs/BENCHMARK_RESULTS.md).
+This is not a hosted-service or enterprise comparison.
+
+## Thesis: AI systems need a knowledge layer
 
 The single most reliable way to make an AI system more useful is to give it the
 *right* context at the *right* moment. Yet the layer responsible for that —
@@ -39,8 +77,8 @@ The dominant pattern, naive vector-only RAG, looks deceptively complete:
 3. retrieve the top-k by cosine similarity,
 4. stuff them into a prompt.
 
-This works in demos and breaks in the real world, because real knowledge bases
-are **large, hierarchical, heterogeneous, and messy**. Vector-only RAG:
+This can be useful, but it discards signals that matter in hierarchical,
+heterogeneous repositories. A chunk-only vector design can:
 
 - **flattens structure** — folders, tables, document relationships, and project
   context all disappear into an undifferentiated soup of fragments;
@@ -49,11 +87,11 @@ are **large, hierarchical, heterogeneous, and messy**. Vector-only RAG:
   from;
 - **is opaque** — there's no good answer to *why* a chunk was retrieved, or
   *where* in the corpus the answer lives;
-- **degrades with scale** — the bigger and messier the corpus, the more
-  irrelevant neighbors crowd the top-k, and the more the model hallucinates.
+- **omit authority signals** — similarity alone does not establish whether a
+  source is current, permitted, authoritative, or the system of record.
 
-The result is a system that retrieves *plausible* text instead of *relevant*
-text, and confidently fills the gaps with fiction.
+These limitations motivate preserving structure and provenance alongside
+retrieval scores. They do not, by themselves, prove better retrieval quality.
 
 ### The Librarian model
 
@@ -96,16 +134,16 @@ metadata, recursively, at every level of the tree.**
 - **Context-enriched chunks.** Before a chunk is embedded, Librarian prepends a
   compact context header — the document, its location, its inferred subject, and
   the nearest heading. So "it grew 12% year over year" becomes a unit that knows
-  *what* grew and *which* document it's from. This is what curbs hallucination
-  and sharpens precision.
+  *what* grew and *which* document it's from. This is intended to make retrieved
+  passages easier to interpret and ground.
 - **Hybrid, structure-aware retrieval.** The read path blends complementary
   signals the way an expert does: semantic similarity, lexical term overlap
   (over titles, paths, and tags), and structural roll-ups — preferring current
   editions and summaries, then deepening into chunks on demand.
 
-The effect: as the corpus grows, the system stays *highly relevant* to the
-specific thing being asked, because relevance is engineered into the catalog,
-not left to a single distance metric.
+The design goal is to make relevance inspectable rather than leaving it to a
+single distance metric. Whether that improves retrieval or answer quality is an
+empirical question for the benchmark suite.
 
 ### A foundation to build on
 
@@ -115,11 +153,10 @@ entire ecosystem grows on top of it. Knowledge management for AI is exactly that
 kind of shared substrate — every serious AI system needs it, and almost no one
 should be reinventing it.
 
-Librarian is built to be that layer: **malleable** (swap any backend),
-**fast** (summary-first, lazy deepening, pluggable ANN indexes), and **strong
-enough to build on** regardless of scale. It is, in effect, a new kind of search
-engine — one designed for AI agents rather than humans typing queries into a
-box.
+Librarian is built as a modular local foundation: backends are swappable,
+summary-first retrieval can deepen into passages, and index implementations are
+pluggable. Claims about latency, cost, retrieval quality, or behavior at larger
+scales are intentionally deferred until measured.
 
 ---
 
@@ -134,11 +171,11 @@ box.
                                                           │
   agent / app  ──▶  ask a question  ──▶  ┌──────────── THE LIBRARIAN (read path) ─────────────┐
                                          │  hybrid retrieve (semantic + lexical + structural +  │
-                                         │  direct path) → prefer current summaries → deepen    │
+                                         │  path metadata) → prefer current summaries → deepen  │
                                          │  into context-rich chunks when needed → cite         │
                                          └──────────────────────────────────────────────────────┘
                                                           │
-                                          highly relevant, citation-ready evidence
+                                          passage-level, citation-ready evidence
 ```
 
 ### The pipeline, stage by stage
@@ -156,18 +193,13 @@ box.
 | **Retrieve** | `retrieval.py` | Hybrid, structure-aware, summary-first with chunk fallback. Returns `Evidence` with provenance. |
 | **Serve** | `tool.py`, `memory.py` | Agent tool adapter (OpenAI / Anthropic / LangChain) + short-term conversational memory. |
 
-### Why it outperforms vector-only RAG
+### Architectural emphasis (not benchmark results)
 
-| Dimension | Vector-only RAG | Librarian |
-|---|---|---|
-| Hierarchy awareness | ✗ | ✓ (recursive roll-ups) |
-| Per-asset metadata | ✗ | ✓ (modality, schema, topics) |
-| Chunk interpretability | low | ✓ (contextual headers) |
-| Explainability / provenance | low | ✓ (citations + locations) |
-| Structural ("where is X?") queries | ✗ | ✓ |
-| Versioning / current-edition bias | rare | ✓ (immutable versions) |
-| Behavior on large, messy corpora | degrades | strong |
-| Hallucination pressure | high | reduced |
+Librarian preserves recursive roll-ups, per-asset metadata, contextual chunk
+headers, source locations, immutable versions, and current-edition filtering.
+These are implementation characteristics—not evidence that it retrieves more
+accurately, responds faster, costs less, or produces better grounded answers
+than another system.
 
 ---
 
@@ -304,8 +336,8 @@ from librarian import register_reader, FilesystemConnector
   Neither alone is enough.
 - **Context and metadata, recursively.** Enrichment at the asset, chunk, folder,
   and collection level — propagated up the tree.
-- **Summary-first, deepen on demand.** Cheaper, cleaner, faster; chunks only
-  when the question needs them.
+- **Summary-first, deepen on demand.** Search summaries first; use chunks when
+  the query or score threshold calls for more detail.
 - **Stable identity, immutable versions, virtual organization.** Nothing is ever
   moved or renamed in storage; only metadata and membership change. The same
   source always maps to the same `doc_id`; new content always makes a new
@@ -313,16 +345,21 @@ from librarian import register_reader, FilesystemConnector
 - **Provenance is mandatory.** Every result carries enough to cite it.
 - **Backend-agnostic.** The data model is the contract; storage is an
   implementation detail.
-- **Plug-and-play.** Works the instant it's installed; scales when you ask it to.
+- **Plug-and-play locally.** The default configuration runs without external
+  services; larger deployments require an appropriate custom backend and
+  measurement.
 
 ## Status & roadmap
 
-`0.1.0` — core catalog + retrieval, offline defaults, filesystem/web/SQL
-connectors, OpenAI + FAISS integrations, agent tool + CLI.
+Current development version — core catalog + benchmark-promoted FTS5/BM25
+retrieval, offline defaults, filesystem/web/SQL connectors, OpenAI + FAISS
+integrations, agent tool + CLI.
 
 Planned: agentic organization (LLM-proposed sections/merges), incremental delta
 sync, more connectors (SharePoint/S3/Notion/Confluence), pgvector/Qdrant stores,
-evaluation harness, and async ingestion.
+hosted retrieval comparisons, and async ingestion. The reproducible
+[evaluation harness](benchmarks/README.md) and [results](docs/BENCHMARK_RESULTS.md)
+are included in this repository.
 
 ## Package name & history
 
