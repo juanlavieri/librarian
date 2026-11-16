@@ -15,7 +15,8 @@ import math
 import re
 from typing import List
 
-_TOKEN_RE = re.compile(r"\b[a-zA-Z0-9][a-zA-Z0-9_\-]*\b")
+# Unicode-aware so accented and non-Latin text produces a non-zero vector.
+_TOKEN_RE = re.compile(r"\b[^\W_][\w\-]*\b")
 
 
 class HashingEmbedder:

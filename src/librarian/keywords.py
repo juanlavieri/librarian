@@ -11,7 +11,9 @@ import re
 from collections import Counter
 from typing import List
 
-_TOKEN_RE = re.compile(r"\b[a-zA-Z][a-zA-Z0-9_\-]{2,}\b")
+# Unicode-aware: a keyword starts with a letter from any script and is at least
+# three characters long, so "atención" and "niño" are kept as keywords/tags.
+_TOKEN_RE = re.compile(r"\b[^\W\d_][\w\-]{2,}\b")
 
 _STOPWORDS = frozenset(
     """

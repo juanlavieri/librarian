@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/), and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **Tokenization is Unicode-aware.** The lexical, keyword, summarizer and
+  hashing-embedder tokenizers used ASCII-only character classes, so accented
+  and non-ASCII words ("renovación", "atención", "niño", "pingüino") were
+  dropped from query terms, keywords, tags and hashing vectors; a query made
+  only of such words returned no results. They are now indexed and matched.
+- **An FTS5 miss returns an empty list.** When BM25 finds nothing, the
+  embedder fallback (and the hybrid strategy's semantic ranking) no longer
+  surfaces nearest neighbours with a non-positive similarity as results.
+
 ## [0.2.0] - 2026-07-22
 
 ### Added
