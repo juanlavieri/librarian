@@ -23,7 +23,10 @@ try:  # optional acceleration
 except Exception:  # pragma: no cover
     _np = None
 
-_TOKEN_RE = re.compile(r"\b[a-zA-Z0-9][a-zA-Z0-9_\-]*\b")
+# Unicode-aware: a token starts with a letter or digit from any script (so
+# "atención", "niño", "pingüino" survive) and may continue with word characters
+# or hyphens. Matches the FTS5 unicode61 tokenizer used for the BM25 index.
+_TOKEN_RE = re.compile(r"\b[^\W_][\w\-]*\b")
 
 
 class LocalVectorStore(VectorStore):

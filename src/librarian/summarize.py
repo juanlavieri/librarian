@@ -18,7 +18,7 @@ class Summarizer(Protocol):
 
 
 _SENT_RE = re.compile(r"(?<=[.!?])\s+")
-_WORD_RE = re.compile(r"\b[a-zA-Z][a-zA-Z0-9_\-]{2,}\b")
+_WORD_RE = re.compile(r"\b[^\W\d_][\w\-]{2,}\b")  # Unicode-aware, see keywords.py
 
 
 class ExtractiveSummarizer:

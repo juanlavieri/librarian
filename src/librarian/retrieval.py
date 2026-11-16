@@ -57,6 +57,17 @@ def _record_to_evidence(rec: IndexRecord, score: float, excerpt_chars: int = 800
     )
 
 
+def _positive(ranked: List[tuple]) -> List[tuple]:
+    """Keep only records with a positive similarity.
+
+    A vector store returns the nearest ``k`` records even when none resembles
+    the query; a cosine of zero or below is the absence of evidence, so such
+    rows must not be surfaced as results (nor pulled in when BM25 found
+    nothing).
+    """
+    return [(rec, score) for rec, score in ranked if score > 0]
+
+
 def _wants_detail(query: str) -> bool:
     q = query.lower()
     return any(trigger in q for trigger in _DETAIL_TRIGGERS)
@@ -85,7 +96,7 @@ class Retriever:
             if not lexical:
                 try:
                     qvec = self.embedder.embed_one(query)
-                    lexical = self.store.search_semantic(qvec, pool, filters)
+                    lexical = _positive(self.store.search_semantic(qvec, pool, filters))
                 except Exception:
                     lexical = []
             best: Dict[str, tuple] = {}
@@ -99,7 +110,7 @@ class Retriever:
         # degrade to lexical retrieval rather than making search unavailable.
         try:
             qvec = self.embedder.embed_one(query)
-            semantic = self.store.search_semantic(qvec, pool, filters)
+            semantic = _positive(self.store.search_semantic(qvec, pool, filters))
         except Exception:
             semantic = []
         lexical = self.store.search_lexical(query, pool, filters)
